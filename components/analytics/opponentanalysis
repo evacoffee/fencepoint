@@ -1,0 +1,219 @@
+import React, { useState } from 'react';
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Users, Trophy, Target, TrendingUp, TrendingDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+export default function OpponentAnalysis({ matches }) {
+  const [expandedOpponent, setExpandedOpponent] = useState(null);
+
+  // Aggregate opponent data
+  const opponentStats = {};
+  
+  matches.forEach(match => {
+    const name = match.opponent_name;
+    if (!opponentStats[name]) {
+      opponentStats[name] = {
+        name,
+        matches: [],
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        totalScore: 0,
+        totalOpponentScore: 0,
+        weapons: {}
+      };
+    }
+    
+    opponentStats[name].matches.push(match);
+    if (match.result === 'win') opponentStats[name].wins++;
+    if (match.result === 'loss') opponentStats[name].losses++;
+    if (match.result === 'draw') opponentStats[name].draws++;
+    opponentStats[name].totalScore += match.your_score || 0;
+    opponentStats[name].totalOpponentScore += match.opponent_score || 0;
+    
+    if (!opponentStats[name].weapons[match.weapon]) {
+      opponentStats[name].weapons[match.weapon] = 0;
+    }
+    opponentStats[name].weapons[match.weapon]++;
+  });
+
+  // Calculate additional stats
+  const opponentArray = Object.values(opponentStats).map(opp => ({
+    ...opp,
+    totalMatches: opp.matches.length,
+    winRate: opp.matches.length > 0 ? (opp.wins / opp.matches.length) * 100 : 0,
+    avgScore: opp.matches.length > 0 ? opp.totalScore / opp.matches.length : 0,
+    avgOpponentScore: opp.matches.length > 0 ? opp.totalOpponentScore / opp.matches.length : 0,
+    lastMatch: opp.matches.sort((a, b) => new Date(b.date) - new Date(a.date))[0],
+    trend: opp.matches.length >= 3 
+      ? opp.matches.slice(-3).filter(m => m.result === 'win').length / 3 
+      : null
+  })).sort((a, b) => b.totalMatches - a.totalMatches);
+
+  const weaponEmoji = { foil: '🤺', epee: '⚔️', sabre: '🗡️' };
+
+  if (opponentArray.length === 0) {
+    return null;
+  }
+
+  return (
+    <Card className="p-6 bg-white border-0 shadow-sm">
+      <div className="flex items-center gap-2 mb-6">
+        <Users className="w-5 h-5 text-blue-600" />
+        <h3 className="text-lg font-semibold text-slate-800">Opponent Analysis</h3>
+      </div>
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-slate-50 rounded-lg">
+        <div className="text-center">
+          <p className="text-2xl font-bold text-slate-800">{opponentArray.length}</p>
+          <p className="text-xs text-slate-500">Unique Opponents</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-bold text-emerald-600">
+            {opponentArray.filter(o => o.winRate >= 50).length}
+          </p>
+          <p className="text-xs text-slate-500">Winning Matchups</p>
+        </div>
+        <div className="text-center">
+          <p className="text-2xl font-bold text-blue-600">
+            {Math.max(...opponentArray.map(o => o.totalMatches))}
+          </p>
+          <p className="text-xs text-slate-500">Most Matches</p>
+        </div>
+      </div>
+
+      {/* Opponent List */}
+      <div className="space-y-3">
+        {opponentArray.map((opponent, index) => (
+          <motion.div
+            key={opponent.name}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05 }}
+          >
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div 
+                className="p-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                onClick={() => setExpandedOpponent(expandedOpponent === opponent.name ? null : opponent.name)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold ${
+                      opponent.winRate >= 60 ? 'bg-emerald-100 text-emerald-700' :
+                      opponent.winRate >= 40 ? 'bg-amber-100 text-amber-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {opponent.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-800">{opponent.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">
+                          {opponent.totalMatches} matches
+                        </Badge>
+                        {opponent.trend !== null && (
+                          <Badge className={`text-xs ${
+                            opponent.trend >= 0.66 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {opponent.trend >= 0.66 ? (
+                              <TrendingUp className="w-3 h-3 mr-1" />
+                            ) : (
+                              <TrendingDown className="w-3 h-3 mr-1" />
+                            )}
+                            {opponent.trend >= 0.66 ? 'Hot' : 'Cold'}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-slate-700">
+                      {opponent.wins}-{opponent.losses}{opponent.draws > 0 ? `-${opponent.draws}` : ''}
+                    </p>
+                    <p className={`text-xs ${
+                      opponent.winRate >= 50 ? 'text-emerald-600' : 'text-red-600'
+                    }`}>
+                      {opponent.winRate.toFixed(0)}% win rate
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <AnimatePresence>
+                {expandedOpponent === opponent.name && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="border-t border-slate-100"
+                  >
+                    <div className="p-4 bg-slate-50 space-y-4">
+                      {/* Score Stats */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs text-slate-500 mb-1">Your Avg Score</p>
+                          <p className="text-xl font-bold text-slate-800">{opponent.avgScore.toFixed(1)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500 mb-1">Their Avg Score</p>
+                          <p className="text-xl font-bold text-slate-800">{opponent.avgOpponentScore.toFixed(1)}</p>
+                        </div>
+                      </div>
+
+                      {/* Weapons Used */}
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 mb-2">Weapons Used</p>
+                        <div className="flex gap-2">
+                          {Object.entries(opponent.weapons).map(([weapon, count]) => (
+                            <Badge key={weapon} variant="outline" className="text-sm">
+                              {weaponEmoji[weapon]} {count}x
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Recent Result */}
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 mb-2">Last Match</p>
+                        <div className="flex items-center justify-between p-2 bg-white rounded border border-slate-200">
+                          <span className="text-sm text-slate-600">
+                            {new Date(opponent.lastMatch.date).toLocaleDateString()}
+                          </span>
+                          <Badge className={
+                            opponent.lastMatch.result === 'win' 
+                              ? 'bg-emerald-100 text-emerald-700' 
+                              : 'bg-red-100 text-red-700'
+                          }>
+                            {opponent.lastMatch.result === 'win' ? 'Won' : 'Lost'} {opponent.lastMatch.your_score}-{opponent.lastMatch.opponent_score}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Strategy Note */}
+                      {opponent.winRate < 40 && (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                          <p className="text-xs text-amber-700">
+                            💡 <strong>Tip:</strong> Struggling against {opponent.name}. Review past matches for patterns and adjust tactics.
+                          </p>
+                        </div>
+                      )}
+                      {opponent.winRate >= 70 && (
+                        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                          <p className="text-xs text-emerald-700">
+                            🏆 <strong>Strength:</strong> Dominant performance against {opponent.name}. Keep up the good work!
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </Card>
+  );
+}

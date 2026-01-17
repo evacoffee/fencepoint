@@ -1,0 +1,235 @@
+import React, { useState, useEffect } from 'react';
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Bluetooth, BluetoothConnected, BluetoothOff, 
+  ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
+  Circle, Play, Square
+} from "lucide-react";
+import { motion } from "framer-motion";
+
+export default function BluetoothRCControl({ followMode = false }) {
+  const [device, setDevice] = useState(null);
+  const [connected, setConnected] = useState(false);
+  const [characteristic, setCharacteristic] = useState(null);
+  const [error, setError] = useState(null);
+  const [activeDirection, setActiveDirection] = useState(null);
+
+  const connectBluetooth = async () => {
+    try {
+      setError(null);
+      
+      // Request Bluetooth device
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: ['battery_service', 'generic_access']
+      });
+
+      setDevice(device);
+
+      // Connect to GATT Server
+      const server = await device.gatt.connect();
+      setConnected(true);
+
+      // For actual RC car control, you'd need to get the specific service/characteristic
+      // This is a generic example - actual implementation depends on your RC car's protocol
+      
+      device.addEventListener('gattserverdisconnected', () => {
+        setConnected(false);
+        setDevice(null);
+      });
+
+    } catch (err) {
+      setError(err.message || 'Failed to connect to Bluetooth device');
+      console.error('Bluetooth error:', err);
+    }
+  };
+
+  const disconnect = () => {
+    if (device?.gatt?.connected) {
+      device.gatt.disconnect();
+    }
+    setDevice(null);
+    setConnected(false);
+  };
+
+  const sendCommand = async (command) => {
+    if (!device || !connected) {
+      setError('Not connected to device');
+      return;
+    }
+
+    // This is where you'd send actual commands to your RC car
+    // The protocol depends on your specific RC car hardware
+    console.log('Sending command:', command);
+    
+    // Example of how you might send data (would need actual service UUID):
+    // const encoder = new TextEncoder();
+    // await characteristic.writeValue(encoder.encode(command));
+  };
+
+  const handleDirection = (direction) => {
+    setActiveDirection(direction);
+    sendCommand(direction);
+    
+    // Auto-release after 100ms for continuous control
+    setTimeout(() => {
+      if (direction === activeDirection) {
+        setActiveDirection(null);
+        sendCommand('stop');
+      }
+    }, 100);
+  };
+
+  useEffect(() => {
+    // Check if Web Bluetooth is supported
+    if (!navigator.bluetooth) {
+      setError('Web Bluetooth is not supported in this browser. Try Chrome or Edge.');
+    }
+  }, []);
+
+  return (
+    <Card className="bg-white border-0 shadow-lg">
+      <div className="p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            {connected ? (
+              <>
+                <BluetoothConnected className="w-5 h-5 text-blue-500" />
+                <span className="font-semibold text-slate-800">RC Car Connected</span>
+              </>
+            ) : (
+              <>
+                <Bluetooth className="w-5 h-5 text-slate-400" />
+                <span className="font-medium text-slate-600">RC Car Not Connected</span>
+              </>
+            )}
+          </div>
+          
+          <Badge variant={followMode ? 'default' : 'outline'} className="bg-purple-100 text-purple-700">
+            {followMode ? 'Follow Mode' : 'Manual Control'}
+          </Badge>
+        </div>
+
+        {!connected ? (
+          <Button 
+            onClick={connectBluetooth} 
+            className="w-full bg-blue-600 hover:bg-blue-700"
+            disabled={!navigator.bluetooth}
+          >
+            <Bluetooth className="w-4 h-4 mr-2" />
+            Connect Bluetooth RC Car
+          </Button>
+        ) : (
+          <Button 
+            onClick={disconnect} 
+            variant="outline"
+            className="w-full"
+          >
+            <BluetoothOff className="w-4 h-4 mr-2" />
+            Disconnect
+          </Button>
+        )}
+
+        {error && (
+          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+            {error}
+          </div>
+        )}
+      </div>
+
+      {/* Manual Controls */}
+      {connected && !followMode && (
+        <div className="p-6">
+          <p className="text-center text-sm text-slate-500 mb-4">Manual Control</p>
+          <div className="grid grid-cols-3 gap-2 max-w-xs mx-auto">
+            <div />
+            <Button
+              size="lg"
+              variant="outline"
+              className={`h-16 ${activeDirection === 'forward' ? 'bg-slate-200' : ''}`}
+              onMouseDown={() => handleDirection('forward')}
+              onMouseUp={() => handleDirection('stop')}
+              onTouchStart={() => handleDirection('forward')}
+              onTouchEnd={() => handleDirection('stop')}
+            >
+              <ArrowUp className="w-6 h-6" />
+            </Button>
+            <div />
+
+            <Button
+              size="lg"
+              variant="outline"
+              className={`h-16 ${activeDirection === 'left' ? 'bg-slate-200' : ''}`}
+              onMouseDown={() => handleDirection('left')}
+              onMouseUp={() => handleDirection('stop')}
+              onTouchStart={() => handleDirection('left')}
+              onTouchEnd={() => handleDirection('stop')}
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-16"
+              onClick={() => sendCommand('stop')}
+            >
+              <Circle className="w-6 h-6" />
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className={`h-16 ${activeDirection === 'right' ? 'bg-slate-200' : ''}`}
+              onMouseDown={() => handleDirection('right')}
+              onMouseUp={() => handleDirection('stop')}
+              onTouchStart={() => handleDirection('right')}
+              onTouchEnd={() => handleDirection('stop')}
+            >
+              <ArrowRight className="w-6 h-6" />
+            </Button>
+
+            <div />
+            <Button
+              size="lg"
+              variant="outline"
+              className={`h-16 ${activeDirection === 'backward' ? 'bg-slate-200' : ''}`}
+              onMouseDown={() => handleDirection('backward')}
+              onMouseUp={() => handleDirection('stop')}
+              onTouchStart={() => handleDirection('backward')}
+              onTouchEnd={() => handleDirection('stop')}
+            >
+              <ArrowDown className="w-6 h-6" />
+            </Button>
+            <div />
+          </div>
+        </div>
+      )}
+
+      {/* Follow Mode Active */}
+      {connected && followMode && (
+        <div className="p-6">
+          <div className="text-center">
+            <motion.div
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+              className="inline-block p-4 bg-purple-100 rounded-full mb-4"
+            >
+              <Play className="w-8 h-8 text-purple-600" />
+            </motion.div>
+            <p className="text-lg font-semibold text-slate-800 mb-2">Follow Mode Active</p>
+            <p className="text-sm text-slate-500">
+              RC car will automatically follow your movements
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="p-4 bg-slate-50 border-t border-slate-200">
+        <p className="text-xs text-slate-400 text-center">
+          ℹ️ Make sure your RC car supports Bluetooth connectivity
+        </p>
+      </div>
+    </Card>
+  );
+}

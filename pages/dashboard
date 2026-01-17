@@ -1,0 +1,115 @@
+import React, { useState } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from "@/components/ui/button";
+import { Plus, Swords } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+
+import StatsOverview from '../components/dashboard/StatsOverview';
+import PerformanceChart from '../components/dashboard/PerformanceChart';
+import RecentMatches from '../components/dashboard/RecentMatches';
+import TargetZoneAnalysis from '../components/dashboard/TargetZoneAnalysis';
+import AICoachTips from '../components/dashboard/AICoachTips';
+import MatchForm from '../components/match/MatchForm';
+import CorrelationAnalysis from '../components/analytics/CorrelationAnalysis';
+import ActionTrends from '../components/analytics/ActionTrends';
+import OpponentAnalysis from '../components/analytics/OpponentAnalysis';
+
+export default function Dashboard() {
+  const [showForm, setShowForm] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: matches = [], isLoading } = useQuery({
+    queryKey: ['matches'],
+    queryFn: () => base44.entities.Match.list('-date'),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data) => base44.entities.Match.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['matches'] });
+      setShowForm(false);
+    }
+  });
+
+  const handleSubmit = (data) => {
+    createMutation.mutate(data);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500/20 rounded-xl">
+                <Swords className="w-7 h-7 text-amber-400" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">fencepoint</h1>
+                <p className="text-slate-400 text-sm">Track, analyze, improve</p>
+              </div>
+            </div>
+            <Button 
+              onClick={() => setShowForm(true)}
+              className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Log Bout
+            </Button>
+          </motion.div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <AnimatePresence>
+          {showForm && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-8"
+            >
+              <MatchForm 
+                onSubmit={handleSubmit} 
+                onCancel={() => setShowForm(false)} 
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-pulse text-slate-400">Loading your data...</div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <StatsOverview matches={matches} />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PerformanceChart matches={matches} />
+              <RecentMatches matches={matches} />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <TargetZoneAnalysis matches={matches} />
+              <AICoachTips matches={matches} />
+            </div>
+
+            <CorrelationAnalysis matches={matches} />
+            
+            <ActionTrends matches={matches} />
+            
+            <OpponentAnalysis matches={matches} />
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

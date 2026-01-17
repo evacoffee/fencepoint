@@ -1,0 +1,259 @@
+import React, { useState } from 'react';
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { X, Plus, Save } from "lucide-react";
+import { motion } from "framer-motion";
+import { format } from "date-fns";
+
+const ACTIONS = [
+  'Attack', 'Riposte', 'Parry', 'Counter-attack', 'Fleche', 
+  'Lunge', 'Beat attack', 'Disengage', 'Feint', 'Stop hit',
+  'Remise', 'Redoublement', 'Prise de fer', 'Bind', 'Coupe'
+];
+
+export default function MatchForm({ onSubmit, onCancel }) {
+  const [formData, setFormData] = useState({
+    opponent_name: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
+    weapon: 'foil',
+    your_score: 0,
+    opponent_score: 0,
+    result: 'win',
+    touches_landed: { head: 0, torso: 0, arm: 0, leg: 0 },
+    touches_received: { head: 0, torso: 0, arm: 0, leg: 0 },
+    actions_used: [],
+    notes: '',
+    energy_level: 'medium',
+    focus_level: 'good'
+  });
+
+  const updateTouches = (type, zone, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        [zone]: parseInt(value) || 0
+      }
+    }));
+  };
+
+  const toggleAction = (action) => {
+    setFormData(prev => ({
+      ...prev,
+      actions_used: prev.actions_used.includes(action)
+        ? prev.actions_used.filter(a => a !== action)
+        : [...prev.actions_used, action]
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    // Calculate result based on scores
+    let result = 'draw';
+    if (formData.your_score > formData.opponent_score) result = 'win';
+    else if (formData.your_score < formData.opponent_score) result = 'loss';
+    
+    onSubmit({ ...formData, result });
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+    >
+      <Card className="p-6 bg-white border-0 shadow-lg">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-slate-800">Log New Bout</h2>
+            <Button type="button" variant="ghost" size="icon" onClick={onCancel}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="opponent">Opponent Name</Label>
+              <Input
+                id="opponent"
+                value={formData.opponent_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, opponent_name: e.target.value }))}
+                placeholder="Enter opponent's name"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="date">Date</Label>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label>Weapon</Label>
+              <Select 
+                value={formData.weapon} 
+                onValueChange={(v) => setFormData(prev => ({ ...prev, weapon: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="foil">🤺 Foil</SelectItem>
+                  <SelectItem value="epee">⚔️ Épée</SelectItem>
+                  <SelectItem value="sabre">🗡️ Sabre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="your_score">Your Score</Label>
+              <Input
+                id="your_score"
+                type="number"
+                min="0"
+                value={formData.your_score}
+                onChange={(e) => setFormData(prev => ({ ...prev, your_score: parseInt(e.target.value) || 0 }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="opponent_score">Opponent Score</Label>
+              <Input
+                id="opponent_score"
+                type="number"
+                min="0"
+                value={formData.opponent_score}
+                onChange={(e) => setFormData(prev => ({ ...prev, opponent_score: parseInt(e.target.value) || 0 }))}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label className="text-emerald-600">Touches Landed (by zone)</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {['head', 'torso', 'arm', 'leg'].map(zone => (
+                  <div key={zone} className="flex items-center gap-2">
+                    <span className="text-sm text-slate-500 capitalize w-12">{zone}</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={formData.touches_landed[zone]}
+                      onChange={(e) => updateTouches('touches_landed', zone, e.target.value)}
+                      className="w-16"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label className="text-red-500">Touches Received (by zone)</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {['head', 'torso', 'arm', 'leg'].map(zone => (
+                  <div key={zone} className="flex items-center gap-2">
+                    <span className="text-sm text-slate-500 capitalize w-12">{zone}</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={formData.touches_received[zone]}
+                      onChange={(e) => updateTouches('touches_received', zone, e.target.value)}
+                      className="w-16"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Label>Successful Actions</Label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {ACTIONS.map(action => (
+                <Badge
+                  key={action}
+                  variant={formData.actions_used.includes(action) ? 'default' : 'outline'}
+                  className={`cursor-pointer transition-all ${
+                    formData.actions_used.includes(action) 
+                      ? 'bg-slate-800 hover:bg-slate-700' 
+                      : 'hover:bg-slate-100'
+                  }`}
+                  onClick={() => toggleAction(action)}
+                >
+                  {action}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label>Energy Level</Label>
+              <Select 
+                value={formData.energy_level} 
+                onValueChange={(v) => setFormData(prev => ({ ...prev, energy_level: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">🔋 Low</SelectItem>
+                  <SelectItem value="medium">⚡ Medium</SelectItem>
+                  <SelectItem value="high">🔥 High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Focus Level</Label>
+              <Select 
+                value={formData.focus_level} 
+                onValueChange={(v) => setFormData(prev => ({ ...prev, focus_level: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="poor">😵 Poor</SelectItem>
+                  <SelectItem value="average">😐 Average</SelectItem>
+                  <SelectItem value="good">🙂 Good</SelectItem>
+                  <SelectItem value="excellent">🎯 Excellent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="Any observations, what worked, what didn't..."
+              rows={3}
+            />
+          </div>
+
+          <div className="flex gap-3 justify-end pt-4">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button type="submit" className="bg-slate-800 hover:bg-slate-700">
+              <Save className="w-4 h-4 mr-2" />
+              Save Bout
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </motion.div>
+  );
+}

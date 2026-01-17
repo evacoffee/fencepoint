@@ -1,0 +1,456 @@
+import React, { useState } from 'react';
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { X, Plus, Save, Trash2, Clock, Target } from "lucide-react";
+import { motion } from "framer-motion";
+import { format } from "date-fns";
+
+const DRILL_CATEGORIES = {
+  footwork: { label: 'Footwork', color: 'bg-blue-100 text-blue-700' },
+  bladework: { label: 'Bladework', color: 'bg-purple-100 text-purple-700' },
+  tactical: { label: 'Tactical', color: 'bg-emerald-100 text-emerald-700' },
+  conditioning: { label: 'Conditioning', color: 'bg-orange-100 text-orange-700' },
+  sparring: { label: 'Sparring', color: 'bg-red-100 text-red-700' },
+  technical: { label: 'Technical', color: 'bg-amber-100 text-amber-700' }
+};
+
+export default function SessionForm({ session, onSubmit, onCancel }) {
+  const [formData, setFormData] = useState(session || {
+    date: format(new Date(), 'yyyy-MM-dd'),
+    duration_minutes: 60,
+    weapon: 'foil',
+    drills: [],
+    goals: [],
+    perceived_effort: 5,
+    energy_level: 'medium',
+    focus_quality: 'good',
+    achievements: [],
+    areas_to_improve: [],
+    coach_present: false,
+    partner_present: false,
+    notes: ''
+  });
+
+  const [currentDrill, setCurrentDrill] = useState({
+    name: '',
+    category: 'footwork',
+    duration_minutes: 10,
+    repetitions: 0,
+    effectiveness: 3,
+    notes: ''
+  });
+
+  const [goalInput, setGoalInput] = useState('');
+  const [achievementInput, setAchievementInput] = useState('');
+  const [improvementInput, setImprovementInput] = useState('');
+
+  const addDrill = () => {
+    if (!currentDrill.name) return;
+    
+    setFormData(prev => ({
+      ...prev,
+      drills: [...prev.drills, { ...currentDrill }]
+    }));
+    
+    setCurrentDrill({
+      name: '',
+      category: 'footwork',
+      duration_minutes: 10,
+      repetitions: 0,
+      effectiveness: 3,
+      notes: ''
+    });
+  };
+
+  const removeDrill = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      drills: prev.drills.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addToArray = (field, value, clearInput) => {
+    if (!value.trim()) return;
+    setFormData(prev => ({
+      ...prev,
+      [field]: [...prev[field], value.trim()]
+    }));
+    clearInput('');
+  };
+
+  const removeFromArray = (field, index) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: prev[field].filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const totalDrillTime = formData.drills.reduce((sum, d) => sum + (d.duration_minutes || 0), 0);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+    >
+      <Card className="p-6 bg-white border-0 shadow-lg">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-slate-800">Log Practice Session</h2>
+            <Button type="button" variant="ghost" size="icon" onClick={onCancel}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {/* Basic Info */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="date">Date</Label>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="duration">Duration (minutes)</Label>
+              <Input
+                id="duration"
+                type="number"
+                min="1"
+                value={formData.duration_minutes}
+                onChange={(e) => setFormData(prev => ({ ...prev, duration_minutes: parseInt(e.target.value) || 0 }))}
+                required
+              />
+            </div>
+            <div>
+              <Label>Primary Weapon</Label>
+              <Select 
+                value={formData.weapon} 
+                onValueChange={(v) => setFormData(prev => ({ ...prev, weapon: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="foil">🤺 Foil</SelectItem>
+                  <SelectItem value="epee">⚔️ Épée</SelectItem>
+                  <SelectItem value="sabre">🗡️ Sabre</SelectItem>
+                  <SelectItem value="mixed">🎯 Mixed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Drills Section */}
+          <div className="border-t pt-6">
+            <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <Target className="w-5 h-5 text-blue-600" />
+              Drills Performed
+            </h3>
+            
+            {/* Add Drill Form */}
+            <div className="bg-slate-50 rounded-lg p-4 mb-4 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Drill Name</Label>
+                  <Input
+                    placeholder="e.g., Advance-retreat footwork"
+                    value={currentDrill.name}
+                    onChange={(e) => setCurrentDrill(prev => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Category</Label>
+                  <Select 
+                    value={currentDrill.category} 
+                    onValueChange={(v) => setCurrentDrill(prev => ({ ...prev, category: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(DRILL_CATEGORIES).map(([key, val]) => (
+                        <SelectItem key={key} value={key}>{val.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">Minutes</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={currentDrill.duration_minutes}
+                    onChange={(e) => setCurrentDrill(prev => ({ ...prev, duration_minutes: parseInt(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Reps</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={currentDrill.repetitions}
+                    onChange={(e) => setCurrentDrill(prev => ({ ...prev, repetitions: parseInt(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Rating (1-5)</Label>
+                  <Select 
+                    value={currentDrill.effectiveness.toString()} 
+                    onValueChange={(v) => setCurrentDrill(prev => ({ ...prev, effectiveness: parseInt(v) }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5].map(n => (
+                        <SelectItem key={n} value={n.toString()}>{'⭐'.repeat(n)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <Button type="button" onClick={addDrill} size="sm" className="w-full">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Drill
+              </Button>
+            </div>
+
+            {/* Drills List */}
+            {formData.drills.length > 0 ? (
+              <div className="space-y-2 mb-4">
+                {formData.drills.map((drill, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Badge className={DRILL_CATEGORIES[drill.category].color}>
+                        {DRILL_CATEGORIES[drill.category].label}
+                      </Badge>
+                      <div>
+                        <p className="font-medium text-slate-800">{drill.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {drill.duration_minutes}min • {drill.repetitions} reps • {'⭐'.repeat(drill.effectiveness)}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeDrill(index)}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between p-2 bg-blue-50 rounded-lg">
+                  <span className="text-sm font-medium text-blue-700">Total Drill Time</span>
+                  <Badge variant="outline" className="bg-blue-100 text-blue-700">
+                    <Clock className="w-3 h-3 mr-1" />
+                    {totalDrillTime} min
+                  </Badge>
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-slate-400 py-4 text-sm">No drills added yet</p>
+            )}
+          </div>
+
+          {/* Goals */}
+          <div>
+            <Label>Session Goals</Label>
+            <div className="flex gap-2 mt-2">
+              <Input
+                placeholder="Add a goal for this session..."
+                value={goalInput}
+                onChange={(e) => setGoalInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addToArray('goals', goalInput, setGoalInput))}
+              />
+              <Button type="button" onClick={() => addToArray('goals', goalInput, setGoalInput)}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+            {formData.goals.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.goals.map((goal, i) => (
+                  <Badge key={i} variant="outline" className="gap-1">
+                    {goal}
+                    <X className="w-3 h-3 cursor-pointer" onClick={() => removeFromArray('goals', i)} />
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Effort & Quality */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label>Perceived Effort (1-10)</Label>
+              <Select 
+                value={formData.perceived_effort.toString()} 
+                onValueChange={(v) => setFormData(prev => ({ ...prev, perceived_effort: parseInt(v) }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[...Array(10)].map((_, i) => (
+                    <SelectItem key={i + 1} value={(i + 1).toString()}>
+                      Level {i + 1} {i + 1 >= 8 ? '🔥' : i + 1 >= 5 ? '💪' : '😊'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Energy Level</Label>
+              <Select 
+                value={formData.energy_level} 
+                onValueChange={(v) => setFormData(prev => ({ ...prev, energy_level: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">🔋 Low</SelectItem>
+                  <SelectItem value="medium">⚡ Medium</SelectItem>
+                  <SelectItem value="high">🔥 High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Focus Quality</Label>
+              <Select 
+                value={formData.focus_quality} 
+                onValueChange={(v) => setFormData(prev => ({ ...prev, focus_quality: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="poor">😵 Poor</SelectItem>
+                  <SelectItem value="average">😐 Average</SelectItem>
+                  <SelectItem value="good">🙂 Good</SelectItem>
+                  <SelectItem value="excellent">🎯 Excellent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Checkboxes */}
+          <div className="flex gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.coach_present}
+                onChange={(e) => setFormData(prev => ({ ...prev, coach_present: e.target.checked }))}
+                className="w-4 h-4 rounded"
+              />
+              <span className="text-sm text-slate-700">Coach Present</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.partner_present}
+                onChange={(e) => setFormData(prev => ({ ...prev, partner_present: e.target.checked }))}
+                className="w-4 h-4 rounded"
+              />
+              <span className="text-sm text-slate-700">Partner Present</span>
+            </label>
+          </div>
+
+          {/* Achievements */}
+          <div>
+            <Label>Achievements / What Went Well</Label>
+            <div className="flex gap-2 mt-2">
+              <Input
+                placeholder="Add an achievement..."
+                value={achievementInput}
+                onChange={(e) => setAchievementInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addToArray('achievements', achievementInput, setAchievementInput))}
+              />
+              <Button type="button" onClick={() => addToArray('achievements', achievementInput, setAchievementInput)}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+            {formData.achievements.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.achievements.map((item, i) => (
+                  <Badge key={i} className="bg-emerald-100 text-emerald-700 gap-1">
+                    ✓ {item}
+                    <X className="w-3 h-3 cursor-pointer" onClick={() => removeFromArray('achievements', i)} />
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Areas to Improve */}
+          <div>
+            <Label>Areas to Improve</Label>
+            <div className="flex gap-2 mt-2">
+              <Input
+                placeholder="Add area for improvement..."
+                value={improvementInput}
+                onChange={(e) => setImprovementInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addToArray('areas_to_improve', improvementInput, setImprovementInput))}
+              />
+              <Button type="button" onClick={() => addToArray('areas_to_improve', improvementInput, setImprovementInput)}>
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+            {formData.areas_to_improve.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {formData.areas_to_improve.map((item, i) => (
+                  <Badge key={i} className="bg-amber-100 text-amber-700 gap-1">
+                    ⚠ {item}
+                    <X className="w-3 h-3 cursor-pointer" onClick={() => removeFromArray('areas_to_improve', i)} />
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Notes */}
+          <div>
+            <Label htmlFor="notes">Additional Notes</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="Any other observations or notes about the session..."
+              rows={3}
+            />
+          </div>
+
+          {/* Submit */}
+          <div className="flex gap-3 justify-end pt-4">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+            <Button type="submit" className="bg-slate-800 hover:bg-slate-700">
+              <Save className="w-4 h-4 mr-2" />
+              Save Session
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </motion.div>
+  );
+}

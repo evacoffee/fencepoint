@@ -1,0 +1,194 @@
+import React from 'react';
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { Target, TrendingUp, Clock } from "lucide-react";
+
+const DRILL_CATEGORIES = {
+  footwork: { label: 'Footwork', color: '#3b82f6' },
+  bladework: { label: 'Bladework', color: '#a855f7' },
+  tactical: { label: 'Tactical', color: '#10b981' },
+  conditioning: { label: 'Conditioning', color: '#f97316' },
+  sparring: { label: 'Sparring', color: '#ef4444' },
+  technical: { label: 'Technical', color: '#f59e0b' }
+};
+
+export default function DrillEffectiveness({ sessions }) {
+  // Aggregate drill data
+  const drillStats = {};
+  
+  sessions.forEach(session => {
+    session.drills?.forEach(drill => {
+      const key = drill.name;
+      if (!drillStats[key]) {
+        drillStats[key] = {
+          name: drill.name,
+          category: drill.category,
+          totalTime: 0,
+          totalReps: 0,
+          count: 0,
+          avgEffectiveness: 0,
+          totalEffectiveness: 0
+        };
+      }
+      
+      drillStats[key].totalTime += drill.duration_minutes || 0;
+      drillStats[key].totalReps += drill.repetitions || 0;
+      drillStats[key].count += 1;
+      drillStats[key].totalEffectiveness += drill.effectiveness || 0;
+    });
+  });
+
+  // Calculate averages and sort
+  const drillArray = Object.values(drillStats).map(drill => ({
+    ...drill,
+    avgEffectiveness: drill.totalEffectiveness / drill.count,
+    avgTime: drill.totalTime / drill.count
+  })).sort((a, b) => b.count - a.count).slice(0, 10);
+
+  // Category breakdown
+  const categoryStats = {};
+  Object.values(drillStats).forEach(drill => {
+    if (!categoryStats[drill.category]) {
+      categoryStats[drill.category] = {
+        category: drill.category,
+        totalTime: 0,
+        count: 0,
+        avgEffectiveness: 0,
+        totalEffectiveness: 0
+      };
+    }
+    categoryStats[drill.category].totalTime += drill.totalTime;
+    categoryStats[drill.category].count += drill.count;
+    categoryStats[drill.category].totalEffectiveness += drill.totalEffectiveness;
+  });
+
+  const categoryArray = Object.values(categoryStats).map(cat => ({
+    ...cat,
+    label: DRILL_CATEGORIES[cat.category]?.label || cat.category,
+    avgEffectiveness: cat.totalEffectiveness / cat.count,
+    color: DRILL_CATEGORIES[cat.category]?.color || '#64748b'
+  })).sort((a, b) => b.totalTime - a.totalTime);
+
+  if (drillArray.length === 0) {
+    return (
+      <Card className="p-6 bg-white border-0 shadow-sm">
+        <h3 className="text-lg font-semibold text-slate-800 mb-4">Drill Effectiveness</h3>
+        <p className="text-center text-slate-400 py-8">
+          No drill data yet. Log some practice sessions!
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Category Overview */}
+      <Card className="p-6 bg-white border-0 shadow-sm">
+        <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <Target className="w-5 h-5 text-purple-600" />
+          Drill Categories
+        </h3>
+        
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {categoryArray.map(cat => (
+            <div key={cat.category} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="flex items-center justify-between mb-2">
+                <Badge 
+                  className="text-white"
+                  style={{ backgroundColor: cat.color }}
+                >
+                  {cat.label}
+                </Badge>
+                <span className="text-xs text-slate-500">{cat.count} sessions</span>
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Clock className="w-3 h-3 text-slate-400" />
+                <span className="text-sm font-medium text-slate-700">{cat.totalTime} min</span>
+              </div>
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-xs text-slate-500">Avg rating:</span>
+                <span className="text-sm font-medium text-slate-700">
+                  {'⭐'.repeat(Math.round(cat.avgEffectiveness))}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Top Drills */}
+      <Card className="p-6 bg-white border-0 shadow-sm">
+        <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-emerald-600" />
+          Most Practiced Drills
+        </h3>
+        
+        <div className="space-y-3">
+          {drillArray.slice(0, 8).map((drill, index) => (
+            <div key={drill.name} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-200 text-slate-600 text-sm font-bold">
+                  {index + 1}
+                </div>
+                <div>
+                  <p className="font-medium text-slate-800">{drill.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {drill.count} times • {drill.totalTime} min total
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-medium text-slate-700">
+                  {'⭐'.repeat(Math.round(drill.avgEffectiveness))}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {drill.avgEffectiveness.toFixed(1)} avg
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Effectiveness Chart */}
+      <Card className="p-6 bg-white border-0 shadow-sm">
+        <h3 className="text-lg font-semibold text-slate-800 mb-4">
+          Effectiveness by Category
+        </h3>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={categoryArray}>
+              <XAxis 
+                dataKey="label" 
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: '#64748b', fontSize: 12 }}
+              />
+              <YAxis 
+                domain={[0, 5]}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: '#64748b', fontSize: 12 }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1e293b',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: '#fff'
+                }}
+                formatter={(value) => [value.toFixed(2), 'Avg Effectiveness']}
+              />
+              <Bar dataKey="avgEffectiveness" radius={[8, 8, 0, 0]}>
+                {categoryArray.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
+    </div>
+  );
+}

@@ -1,0 +1,184 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Target, Play, Square, Zap, User, Users, 
+  AlertCircle, Crosshair
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+export default function FollowModeControl({ isActive, onToggle, cameraActive }) {
+  const [trackingMode, setTrackingMode] = useState('person');
+  const [sensitivity, setSensitivity] = useState('medium');
+  const [detectionActive, setDetectionActive] = useState(false);
+  const [trackingData, setTrackingData] = useState(null);
+
+  const startFollowMode = () => {
+    if (!cameraActive) {
+      alert('Please start the camera first');
+      return;
+    }
+    setDetectionActive(true);
+    onToggle(true);
+  };
+
+  const stopFollowMode = () => {
+    setDetectionActive(false);
+    onToggle(false);
+    setTrackingData(null);
+  };
+
+  // Simulated tracking data for visualization
+  useEffect(() => {
+    if (detectionActive) {
+      const interval = setInterval(() => {
+        // In a real implementation, this would come from actual computer vision
+        setTrackingData({
+          x: Math.random() * 100,
+          y: Math.random() * 100,
+          confidence: 0.8 + Math.random() * 0.2,
+          direction: ['center', 'left', 'right'][Math.floor(Math.random() * 3)]
+        });
+      }, 500);
+      return () => clearInterval(interval);
+    }
+  }, [detectionActive]);
+
+  return (
+    <Card className="bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200 shadow-lg">
+      <div className="p-4 border-b border-purple-200 bg-white/50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Target className="w-5 h-5 text-purple-600" />
+            <h3 className="font-semibold text-slate-800">AI Follow Mode</h3>
+          </div>
+          <Badge variant={isActive ? 'default' : 'outline'} className="bg-purple-600">
+            {isActive ? 'ACTIVE' : 'INACTIVE'}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="p-4 space-y-4">
+        <div>
+          <label className="text-sm font-medium text-slate-700 mb-2 block">
+            Tracking Target
+          </label>
+          <Select value={trackingMode} onValueChange={setTrackingMode}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="person">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Single Person
+                </div>
+              </SelectItem>
+              <SelectItem value="multiple">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Multiple People
+                </div>
+              </SelectItem>
+              <SelectItem value="motion">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4" />
+                  Motion Detection
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-slate-700 mb-2 block">
+            Sensitivity
+          </label>
+          <Select value={sensitivity} onValueChange={setSensitivity}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">Low - Smooth tracking</SelectItem>
+              <SelectItem value="medium">Medium - Balanced</SelectItem>
+              <SelectItem value="high">High - Responsive</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {!isActive ? (
+          <Button 
+            onClick={startFollowMode} 
+            className="w-full bg-purple-600 hover:bg-purple-700"
+            disabled={!cameraActive}
+          >
+            <Play className="w-4 h-4 mr-2" />
+            Start Follow Mode
+          </Button>
+        ) : (
+          <Button 
+            onClick={stopFollowMode} 
+            className="w-full bg-red-600 hover:bg-red-700"
+          >
+            <Square className="w-4 h-4 mr-2" />
+            Stop Follow Mode
+          </Button>
+        )}
+
+        {!cameraActive && (
+          <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-amber-700">
+              Camera must be active to use follow mode
+            </p>
+          </div>
+        )}
+
+        <AnimatePresence>
+          {detectionActive && trackingData && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="p-4 bg-white rounded-lg border border-purple-200"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <Crosshair className="w-4 h-4 text-purple-600" />
+                <span className="text-sm font-medium text-slate-700">Tracking Status</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="text-slate-500">Confidence</span>
+                  <span className="font-medium text-slate-700">
+                    {(trackingData.confidence * 100).toFixed(0)}%
+                  </span>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <motion.div 
+                    className="h-full bg-purple-600"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${trackingData.confidence * 100}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs mt-2">
+                  <span className="text-slate-500">Direction</span>
+                  <Badge variant="outline" className="text-xs">
+                    {trackingData.direction}
+                  </Badge>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-xs text-blue-700">
+            💡 <strong>Tip:</strong> The RC car will automatically adjust its position to keep you centered in the camera frame
+          </p>
+        </div>
+      </div>
+    </Card>
+  );
+}

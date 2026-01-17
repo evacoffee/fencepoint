@@ -1,0 +1,228 @@
+import React, { useState } from 'react';
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { format, parseISO } from 'date-fns';
+import { motion, AnimatePresence } from "framer-motion";
+import { ChevronDown, ChevronUp, Clock, Target, Zap, Brain, Trash2 } from "lucide-react";
+
+const weaponEmoji = { foil: '🤺', epee: '⚔️', sabre: '🗡️', mixed: '🎯' };
+
+const DRILL_CATEGORIES = {
+  footwork: { label: 'Footwork', color: 'bg-blue-100 text-blue-700' },
+  bladework: { label: 'Bladework', color: 'bg-purple-100 text-purple-700' },
+  tactical: { label: 'Tactical', color: 'bg-emerald-100 text-emerald-700' },
+  conditioning: { label: 'Conditioning', color: 'bg-orange-100 text-orange-700' },
+  sparring: { label: 'Sparring', color: 'bg-red-100 text-red-700' },
+  technical: { label: 'Technical', color: 'bg-amber-100 text-amber-700' }
+};
+
+export default function RecentSessions({ sessions, onDelete }) {
+  const [expandedId, setExpandedId] = useState(null);
+
+  const recentSessions = [...sessions]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 10);
+
+  if (recentSessions.length === 0) {
+    return (
+      <Card className="p-6 bg-white border-0 shadow-sm">
+        <h3 className="text-lg font-semibold text-slate-800 mb-4">Recent Sessions</h3>
+        <div className="text-center py-8 text-slate-400">
+          No practice sessions logged yet
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-6 bg-white border-0 shadow-sm">
+      <h3 className="text-lg font-semibold text-slate-800 mb-4">Recent Sessions</h3>
+      <div className="space-y-3">
+        {recentSessions.map((session, index) => (
+          <motion.div
+            key={session.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05 }}
+          >
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div 
+                className="p-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                onClick={() => setExpandedId(expandedId === session.id ? null : session.id)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{weaponEmoji[session.weapon]}</span>
+                    <div>
+                      <p className="font-semibold text-slate-800">
+                        {format(parseISO(session.date), 'EEEE, MMM d')}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {session.duration_minutes} min
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {session.drills?.length || 0} drills
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className={
+                      session.perceived_effort >= 8 ? 'bg-red-100 text-red-700' :
+                      session.perceived_effort >= 5 ? 'bg-amber-100 text-amber-700' :
+                      'bg-emerald-100 text-emerald-700'
+                    }>
+                      Effort: {session.perceived_effort}/10
+                    </Badge>
+                    {expandedId === session.id ? (
+                      <ChevronUp className="w-5 h-5 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-slate-400" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <AnimatePresence>
+                {expandedId === session.id && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="border-t border-slate-100"
+                  >
+                    <div className="p-4 bg-slate-50 space-y-4">
+                      {/* Goals */}
+                      {session.goals?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 mb-2 flex items-center gap-1">
+                            <Target className="w-3 h-3" />
+                            Session Goals
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {session.goals.map((goal, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">
+                                {goal}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Drills */}
+                      {session.drills?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 mb-2">Drills Performed</p>
+                          <div className="space-y-2">
+                            {session.drills.map((drill, i) => (
+                              <div key={i} className="flex items-center justify-between p-2 bg-white rounded border border-slate-200">
+                                <div className="flex items-center gap-2">
+                                  <Badge className={DRILL_CATEGORIES[drill.category]?.color || 'bg-slate-100'}>
+                                    {DRILL_CATEGORIES[drill.category]?.label || drill.category}
+                                  </Badge>
+                                  <span className="text-sm text-slate-700">{drill.name}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-slate-500">
+                                  <span>{drill.duration_minutes}min</span>
+                                  <span>•</span>
+                                  <span>{'⭐'.repeat(drill.effectiveness)}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* State */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-amber-500" />
+                          <div>
+                            <p className="text-xs text-slate-400">Energy</p>
+                            <p className="text-sm font-medium text-slate-700 capitalize">{session.energy_level}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Brain className="w-4 h-4 text-blue-500" />
+                          <div>
+                            <p className="text-xs text-slate-400">Focus</p>
+                            <p className="text-sm font-medium text-slate-700 capitalize">{session.focus_quality}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Achievements */}
+                      {session.achievements?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-emerald-600 mb-2">✓ Achievements</p>
+                          <div className="space-y-1">
+                            {session.achievements.map((item, i) => (
+                              <p key={i} className="text-sm text-slate-600">• {item}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Areas to Improve */}
+                      {session.areas_to_improve?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-amber-600 mb-2">⚠ Areas to Improve</p>
+                          <div className="space-y-1">
+                            {session.areas_to_improve.map((item, i) => (
+                              <p key={i} className="text-sm text-slate-600">• {item}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Notes */}
+                      {session.notes && (
+                        <div>
+                          <p className="text-xs font-medium text-slate-500 mb-1">Notes</p>
+                          <p className="text-sm text-slate-600">{session.notes}</p>
+                        </div>
+                      )}
+
+                      {/* Badges */}
+                      <div className="flex flex-wrap gap-2">
+                        {session.coach_present && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                            Coach Present
+                          </Badge>
+                        )}
+                        {session.partner_present && (
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                            Partner Present
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Delete */}
+                      <div className="flex justify-end pt-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(session.id);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </Card>
+  );
+}

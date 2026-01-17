@@ -1,0 +1,82 @@
+import React from 'react';
+import { Card } from "@/components/ui/card";
+import { Clock, TrendingUp, Target, Award } from "lucide-react";
+import { motion } from "framer-motion";
+import { differenceInDays, parseISO } from 'date-fns';
+
+export default function PracticeStats({ sessions }) {
+  const totalSessions = sessions.length;
+  const totalMinutes = sessions.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+  const totalHours = Math.floor(totalMinutes / 60);
+  
+  const avgDuration = totalSessions > 0 ? Math.round(totalMinutes / totalSessions) : 0;
+  
+  // Calculate average effort
+  const avgEffort = totalSessions > 0 
+    ? (sessions.reduce((sum, s) => sum + (s.perceived_effort || 0), 0) / totalSessions).toFixed(1)
+    : 0;
+
+  // Total drills
+  const totalDrills = sessions.reduce((sum, s) => sum + (s.drills?.length || 0), 0);
+
+  // Sessions this week
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const thisWeekSessions = sessions.filter(s => parseISO(s.date) >= weekAgo).length;
+
+  const stats = [
+    {
+      label: "Total Hours",
+      value: `${totalHours}h ${totalMinutes % 60}m`,
+      icon: Clock,
+      color: "text-blue-500",
+      bg: "bg-blue-500/10"
+    },
+    {
+      label: "This Week",
+      value: thisWeekSessions,
+      icon: TrendingUp,
+      color: "text-emerald-500",
+      bg: "bg-emerald-500/10"
+    },
+    {
+      label: "Avg Duration",
+      value: `${avgDuration} min`,
+      icon: Target,
+      color: "text-purple-500",
+      bg: "bg-purple-500/10"
+    },
+    {
+      label: "Total Drills",
+      value: totalDrills,
+      icon: Award,
+      color: "text-amber-500",
+      bg: "bg-amber-500/10"
+    }
+  ];
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {stats.map((stat, index) => (
+        <motion.div
+          key={stat.label}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.1 }}
+        >
+          <Card className="p-5 bg-white border-0 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">{stat.label}</p>
+                <p className="text-2xl md:text-3xl font-bold text-slate-800 mt-1">{stat.value}</p>
+              </div>
+              <div className={`p-2.5 rounded-xl ${stat.bg}`}>
+                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+      ))}
+    </div>
+  );
+}

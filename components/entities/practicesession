@@ -1,0 +1,115 @@
+{
+  "name": "Match",
+  "type": "object",
+  "properties": {
+    "opponent_name": {
+      "type": "string",
+      "description": "Name of the opponent"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the match"
+    },
+    "weapon": {
+      "type": "string",
+      "enum": [
+        "foil",
+        "epee",
+        "sabre"
+      ],
+      "description": "Type of weapon used"
+    },
+    "your_score": {
+      "type": "number",
+      "description": "Your final score"
+    },
+    "opponent_score": {
+      "type": "number",
+      "description": "Opponent's final score"
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "win",
+        "loss",
+        "draw"
+      ],
+      "description": "Match result"
+    },
+    "touches_landed": {
+      "type": "object",
+      "description": "Where you scored touches",
+      "properties": {
+        "head": {
+          "type": "number"
+        },
+        "torso": {
+          "type": "number"
+        },
+        "arm": {
+          "type": "number"
+        },
+        "leg": {
+          "type": "number"
+        }
+      }
+    },
+    "touches_received": {
+      "type": "object",
+      "description": "Where opponent scored on you",
+      "properties": {
+        "head": {
+          "type": "number"
+        },
+        "torso": {
+          "type": "number"
+        },
+        "arm": {
+          "type": "number"
+        },
+        "leg": {
+          "type": "number"
+        }
+      }
+    },
+    "actions_used": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Successful actions/techniques used"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes about the match"
+    },
+    "energy_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "description": "Your energy level during the match"
+    },
+    "focus_level": {
+      "type": "string",
+      "enum": [
+        "poor",
+        "average",
+        "good",
+        "excellent"
+      ],
+      "description": "Your mental focus during the match"
+    }
+  },
+  "required": [
+    "opponent_name",
+    "date",
+    "weapon",
+    "your_score",
+    "opponent_score",
+    "result"
+  ]
+}

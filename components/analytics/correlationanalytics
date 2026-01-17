@@ -1,0 +1,151 @@
+import React from 'react';
+import { Card } from "@/components/ui/card";
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { TrendingUp } from "lucide-react";
+
+export default function CorrelationAnalysis({ matches }) {
+  const energyLevelMap = { low: 1, medium: 2, high: 3 };
+  const focusLevelMap = { poor: 1, average: 2, good: 3, excellent: 4 };
+
+  const energyData = matches
+    .filter(m => m.energy_level && m.result)
+    .map(m => ({
+      energy: energyLevelMap[m.energy_level],
+      outcome: m.result === 'win' ? 1 : 0,
+      score: m.your_score,
+      date: m.date
+    }));
+
+  const focusData = matches
+    .filter(m => m.focus_level && m.result)
+    .map(m => ({
+      focus: focusLevelMap[m.focus_level],
+      outcome: m.result === 'win' ? 1 : 0,
+      score: m.your_score,
+      date: m.date
+    }));
+
+  // Calculate correlation stats
+  const energyWinRates = {
+    low: matches.filter(m => m.energy_level === 'low').filter(m => m.result === 'win').length / matches.filter(m => m.energy_level === 'low').length || 0,
+    medium: matches.filter(m => m.energy_level === 'medium').filter(m => m.result === 'win').length / matches.filter(m => m.energy_level === 'medium').length || 0,
+    high: matches.filter(m => m.energy_level === 'high').filter(m => m.result === 'win').length / matches.filter(m => m.energy_level === 'high').length || 0
+  };
+
+  const focusWinRates = {
+    poor: matches.filter(m => m.focus_level === 'poor').filter(m => m.result === 'win').length / matches.filter(m => m.focus_level === 'poor').length || 0,
+    average: matches.filter(m => m.focus_level === 'average').filter(m => m.result === 'win').length / matches.filter(m => m.focus_level === 'average').length || 0,
+    good: matches.filter(m => m.focus_level === 'good').filter(m => m.result === 'win').length / matches.filter(m => m.focus_level === 'good').length || 0,
+    excellent: matches.filter(m => m.focus_level === 'excellent').filter(m => m.result === 'win').length / matches.filter(m => m.focus_level === 'excellent').length || 0
+  };
+
+  if (matches.length === 0) {
+    return null;
+  }
+
+  return (
+    <Card className="p-6 bg-white border-0 shadow-sm">
+      <div className="flex items-center gap-2 mb-6">
+        <TrendingUp className="w-5 h-5 text-purple-600" />
+        <h3 className="text-lg font-semibold text-slate-800">Energy & Focus Impact</h3>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Energy vs Performance */}
+        <div>
+          <h4 className="text-sm font-medium text-slate-700 mb-3">Energy Level vs Win Rate</h4>
+          <div className="space-y-2 mb-4">
+            {Object.entries(energyWinRates).map(([level, rate]) => (
+              <div key={level} className="flex items-center justify-between text-sm">
+                <span className="capitalize text-slate-600">{level}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-blue-400 to-blue-600"
+                      style={{ width: `${rate * 100}%` }}
+                    />
+                  </div>
+                  <span className="font-medium text-slate-700 w-12 text-right">
+                    {(rate * 100).toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Focus vs Performance */}
+        <div>
+          <h4 className="text-sm font-medium text-slate-700 mb-3">Focus Level vs Win Rate</h4>
+          <div className="space-y-2 mb-4">
+            {Object.entries(focusWinRates).map(([level, rate]) => (
+              <div key={level} className="flex items-center justify-between text-sm">
+                <span className="capitalize text-slate-600">{level}</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-purple-400 to-purple-600"
+                      style={{ width: `${rate * 100}%` }}
+                    />
+                  </div>
+                  <span className="font-medium text-slate-700 w-12 text-right">
+                    {(rate * 100).toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Scatter Plot */}
+      <div className="mt-6 h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis 
+              type="number" 
+              dataKey="energy" 
+              name="Energy" 
+              domain={[0, 4]}
+              ticks={[1, 2, 3]}
+              tickFormatter={(v) => ['', 'Low', 'Med', 'High'][v] || ''}
+              stroke="#64748b"
+            />
+            <YAxis 
+              type="number" 
+              dataKey="outcome" 
+              name="Result" 
+              domain={[-0.1, 1.1]}
+              ticks={[0, 1]}
+              tickFormatter={(v) => v === 1 ? 'Win' : 'Loss'}
+              stroke="#64748b"
+            />
+            <Tooltip 
+              cursor={{ strokeDasharray: '3 3' }}
+              content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  return (
+                    <div className="bg-slate-800 text-white px-3 py-2 rounded-lg text-xs">
+                      <p>Energy: {['', 'Low', 'Medium', 'High'][payload[0].value]}</p>
+                      <p>Result: {payload[1].value === 1 ? 'Win' : 'Loss'}</p>
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+            <Scatter data={energyData} fill="#3b82f6" />
+          </ScatterChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-xs text-blue-700">
+          💡 <strong>Insight:</strong> Higher energy and focus levels tend to correlate with better match performance. 
+          Track these metrics to optimize your pre-match preparation.
+        </p>
+      </div>
+    </Card>
+  );
+}
