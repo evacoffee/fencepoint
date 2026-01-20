@@ -2,8 +2,10 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as tf from '@tensorflow/tfjs';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import '@tensorflow/tfjs-backend-webgl';
-import { analyzeFencingPose, adaptToEnvironment } from '../../utils/poseAnalysis';
+import { analyzeFencingPose, adaptToEnvironment } from '../../../src/utils/poseAnalysis';
+import { analyzePoseAgainstIdeal, generateRealTimeFeedback } from '../../../src/utils/advancedPoseAnalysis';
 import PoseVisualization from './PoseVisualization';
+import PoseFeedback from './PoseFeedback';
 
 const CameraStream = ({ onPoseDetected, onCameraStateChange, onError }) => {
   const videoRef = useRef(null);
@@ -12,11 +14,16 @@ const CameraStream = ({ onPoseDetected, onCameraStateChange, onError }) => {
   const [fps, setFps] = useState(0);
   const [environment, setEnvironment] = useState({ lighting: 1, contrast: 1 });
   const [dimensions, setDimensions] = useState({ width: 640, height: 480 });
+  const [currentMove, setCurrentMove] = useState('ENGARDE');
+  const [currentWeapon, setCurrentWeapon] = useState('FOIL');
+  const [aiFeedback, setAiFeedback] = useState(null);
+  const [showFeedback, setShowFeedback] = useState(true);
   const frameCount = useRef(0);
   const lastFpsUpdate = useRef(performance.now());
   const lastPose = useRef(null);
   const poseHistory = useRef([]);
   const animationFrameId = useRef(null);
+  const feedbackCooldown = useRef(false);
 
   // Initialize the pose detector
   useEffect(() => {
@@ -139,54 +146,65 @@ const CameraStream = ({ onPoseDetected, onCameraStateChange, onError }) => {
   const detectPose = useCallback(async () => {
     if (!detector || !videoRef.current) return;
 
-    const detect = async () => {
-      frameCount.current++;
-      const now = performance.now();
-      const delta = now - lastFpsUpdate.current;
-      
-      // Update FPS counter every second
-      if (delta >= 1000) {
-        setFps(Math.round((frameCount.current * 1000) / delta));
-        frameCount.current = 0;
-        lastFpsUpdate.current = now;
-      }
+    const now = performance.now();
+    frameCount.current++;
 
-      try {
-        // Get current environment conditions
-        const env = adaptToEnvironment(videoRef.current);
-        setEnvironment(env);
+    // Update FPS counter every second
+    if (now - lastFpsUpdate.current >= 1000) {
+      setFps(Math.round((frameCount.current * 1000) / (now - lastFpsUpdate.current)));
+      frameCount.current = 0;
+      lastFpsUpdate.current = now;
+    }
 
-        // Adjust detection parameters based on environment
-        const minPoseScore = Math.max(0.2, 0.5 - (1 - env.lighting) * 0.3);
+    try {
+      // Detect poses
+      const poses = await detector.estimatePoses(videoRef.current, {
+        maxPoses: 1,
+        flipHorizontal: false,
+        scoreThreshold: 0.3,
+      });
+
+      if (poses && poses.length > 0) {
+        // Smooth pose data
+        const smoothedPose = smoothPose(poses[0]);
+        const basicAnalysis = analyzeFencingPose(smoothedPose);
         
-        // Detect poses
-        const poses = await detector.estimatePoses(videoRef.current, {
-          flipHorizontal: false,
-          maxPoses: 1,
-          scoreThreshold: minPoseScore
-        });
+        // Analyze pose with AI feedback based on current weapon
+        const aiAnalysis = analyzePoseAgainstIdeal(smoothedPose, currentMove, currentWeapon);
         
-        if (poses.length > 0) {
-          // Smooth the pose data
-          const smoothedPose = smoothPose(poses[0]);
-          lastPose.current = {
-            ...smoothedPose,
-            analysis: analyzeFencingPose(smoothedPose),
-            timestamp: now
-          };
+        lastPose.current = {
+          ...smoothedPose,
+          analysis: { ...basicAnalysis, ...aiAnalysis },
+          timestamp: now
+        };
+
+        // Generate feedback (throttled to avoid overwhelming updates)
+        if (!feedbackCooldown.current) {
+          feedbackCooldown.current = true;
+          const feedback = generateRealTimeFeedback(smoothedPose, currentMove, currentWeapon);
+          setAiFeedback(feedback);
           
-          // Pass both raw and analyzed data to parent
-          onPoseDetected?.(lastPose.current);
+          // Reset cooldown after delay
+          setTimeout(() => {
+            feedbackCooldown.current = false;
+          }, 500);
         }
-      } catch (err) {
-        console.error('Error detecting pose:', err);
+
+        // Notify parent component
+        if (onPoseDetected) {
+          onPoseDetected(lastPose.current);
+        }
+      } else {
+        lastPose.current = null;
+        setAiFeedback(null);
       }
+    } catch (error) {
+      console.error('Error detecting pose:', error);
+      if (onError) onError('Failed to detect pose');
+    }
 
-      animationFrameId.current = requestAnimationFrame(detect);
-    };
-
-    detect();
-  }, [detector, onPoseDetected]);
+    animationFrameId.current = requestAnimationFrame(detectPose);
+  }, [detector, onPoseDetected, onError, currentMove, currentWeapon]);
 
   if (isLoading) {
     return (
@@ -197,25 +215,57 @@ const CameraStream = ({ onPoseDetected, onCameraStateChange, onError }) => {
   }
 
   return (
-    <div className="relative overflow-hidden rounded-xl border-2 border-gold-500 shadow-lg">
+    <div className="relative w-full h-full">
       <video
         ref={videoRef}
-        className="w-full h-auto"
+        autoPlay
         playsInline
         muted
-        autoPlay
+        className="w-full h-full object-cover"
+        style={{
+          transform: 'scaleX(-1)',
+          filter: `brightness(${environment.lighting}) contrast(${environment.contrast})`,
+        }}
       />
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-        <PoseVisualization 
-          pose={lastPose.current} 
-          analysis={lastPose.current?.analysis} 
-          width={dimensions.width} 
-          height={dimensions.height}
-        />
-      </div>
-      <div className="absolute top-2 right-2 bg-navy-800/80 text-white text-xs px-2 py-1 rounded">
-        {fps} FPS • {Math.round(environment.lighting * 100)}% Light
-      </div>
+      {lastPose.current && (
+        <PoseVisualization pose={lastPose.current} dimensions={dimensions} />
+      )}
+      {isLoading ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <div className="animate-pulse text-white">Loading pose detection...</div>
+        </div>
+      ) : (
+        <>
+          <PoseFeedback 
+            feedback={aiFeedback?.feedback} 
+            score={aiFeedback?.score || 0}
+            isVisible={showFeedback}
+            currentWeapon={currentWeapon}
+            onWeaponChange={setCurrentWeapon}
+          />
+          <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded flex items-center gap-2">
+            <span>{fps} FPS</span>
+            <span className="w-px h-4 bg-white/30 mx-1"></span>
+            <select 
+              value={currentMove}
+              onChange={(e) => setCurrentMove(e.target.value)}
+              className="bg-black/50 border-none text-xs text-white focus:ring-0 focus:ring-offset-0 p-0 pr-5"
+            >
+              <option value="ENGARDE">En Garde</option>
+              <option value="LUNGE">Lunge</option>
+              <option value="PARRY">Parry</option>
+              <option value="RIPOSTE">Riposte</option>
+            </select>
+            <button 
+              onClick={() => setShowFeedback(!showFeedback)}
+              className="ml-1 p-1 hover:bg-white/10 rounded"
+              title={showFeedback ? 'Hide feedback' : 'Show feedback'}
+            >
+              {showFeedback ? '👁️' : '👁️‍🗨️'}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };

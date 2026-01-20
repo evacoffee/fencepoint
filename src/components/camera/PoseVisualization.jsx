@@ -1,6 +1,7 @@
 // components/camera/PoseVisualization.jsx
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { getKeypoint } from '../../utils/poseAnalysis';
+import { motion } from 'framer-motion';
 
 // Color scheme
 const COLORS = {
@@ -16,7 +17,7 @@ const COLORS = {
     300: '#F0D78C',
   },
   WHITE: '#FFFFFF',
-  HIGHLIGHT: '#F59E0B',
+  HIGHLIGHT: '#0b84f5ff',
 };
 
 // Keypoint connections for drawing skeleton
@@ -40,8 +41,16 @@ const CONNECTIONS = [
   ['RIGHT_KNEE', 'RIGHT_ANKLE'],
 ];
 
-const PoseVisualization = ({ pose, analysis, width = 640, height = 480 }) => {
+const PoseVisualization = ({ pose, analysis, width = 640, height = 480, feedback = null }) => {
   const canvasRef = useRef(null);
+  
+  // Memoize the feedback to prevent unnecessary re-renders
+  const feedbackItems = useMemo(() => {
+    if (!feedback?.feedback?.length) return [];
+    return feedback.feedback
+      .filter(item => item.priority === 'high' || item.priority === 'medium')
+      .slice(0, 3); // Show max 3 feedback items
+  }, [feedback]);
 
   useEffect(() => {
     if (!pose || !canvasRef.current) return;
@@ -51,6 +60,23 @@ const PoseVisualization = ({ pose, analysis, width = 640, height = 480 }) => {
     
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw feedback highlights
+    if (analysis?.details) {
+      // Example: Highlight knees if knee angle needs adjustment
+      if (analysis.details.kneeAngle?.score < 0.7) {
+        const knee = getKeypoint(pose, 'LEFT_KNEE') || getKeypoint(pose, 'RIGHT_KNEE');
+        if (knee) {
+          ctx.beginPath();
+          ctx.arc(knee.x, knee.y, 20, 0, 2 * Math.PI);
+          ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';
+          ctx.fill();
+        }
+      }
+      
+      // Add more visual feedback based on analysis
+      // ...
+    }
 
     // Draw keypoints
     if (pose.keypoints) {
@@ -159,13 +185,37 @@ const PoseVisualization = ({ pose, analysis, width = 640, height = 480 }) => {
   }, [pose, analysis, width, height]);
 
   return (
-    <div className="relative">
-      <canvas
-        ref={canvasRef}
-        width={width}
-        height={height}
-        className="rounded-xl border-2 border-gold-500"
-      />
+    <div className="relative w-full h-full">
+      <canvas ref={canvasRef} width={width} height={height} className="absolute top-0 left-0 w-full h-full" />
+      
+      {/* Feedback indicators */}
+      {feedbackItems.length > 0 && (
+        <div className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-2 justify-center">
+          {feedbackItems.map((item, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`px-3 py-2 rounded-full text-sm font-medium flex items-center gap-2 ${
+                item.priority === 'high' 
+                  ? 'bg-red-500/90 text-white' 
+                  : 'bg-yellow-500/90 text-gray-900'
+              }`}
+            >
+              {item.priority === 'high' ? (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              {item.message}
+            </motion.div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
